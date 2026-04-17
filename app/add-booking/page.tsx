@@ -124,28 +124,34 @@ export default function AddBookingPage() {
     return roomDetails.find((room) => room.room_name === roomName);
   }
 
-  function getRoomAvailability(roomName: string) {
-    if (!checkInDate || !checkOutDate) {
-      return null;
-    }
-
-    const room = getRoomByName(roomName);
-    if (!room) return null;
-
-    const hasConflict = bookingRows.some((item) => {
-      if (item.room_id !== room.id) return false;
-      if (!item.bookings) return false;
-
-      return rangesOverlap(
-        checkInDate,
-        checkOutDate,
-        item.bookings.check_in_date,
-        item.bookings.check_out_date
-      );
-    });
-
-    return !hasConflict;
+function getRoomAvailability(roomName: string) {
+  if (!checkInDate || !checkOutDate) {
+    return null;
   }
+
+  const room = getRoomByName(roomName);
+  if (!room) return null;
+
+  const hasConflict = bookingRows.some((item) => {
+    if (item.room_id !== room.id) return false;
+    if (!item.bookings) return false;
+
+    const booking = Array.isArray(item.bookings)
+      ? item.bookings[0]
+      : item.bookings;
+
+    if (!booking) return false;
+
+    return rangesOverlap(
+      checkInDate,
+      checkOutDate,
+      booking.check_in_date,
+      booking.check_out_date
+    );
+  });
+
+  return !hasConflict;
+}
 
   function getRoomFinalPrice(roomName: string) {
     const room = getRoomByName(roomName);
