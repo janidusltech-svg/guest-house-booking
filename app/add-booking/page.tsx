@@ -97,24 +97,27 @@ export default function AddBookingPage() {
 
     setLoadingAvailability(true);
 
-    const { data, error } = await supabase
-      .from("booking_rooms")
-      .select(
-        `
+    const { data, error } = await supabase.from("booking_rooms").select(`
         room_id,
         bookings (
           check_in_date,
           check_out_date
         )
-      `
-      );
+      `);
 
     if (error) {
       alert("Availability load error: " + error.message);
       console.error("SUPABASE FETCH BOOKINGS ERROR:", error);
       setBookingRows([]);
     } else {
-      setBookingRows((data || []) as BookingRow[]);
+      const normalizedRows: BookingRow[] = ((data || []) as any[]).map((item) => ({
+        room_id: item.room_id,
+        bookings: Array.isArray(item.bookings)
+          ? item.bookings[0] ?? null
+          : item.bookings ?? null,
+      }));
+
+      setBookingRows(normalizedRows);
     }
 
     setLoadingAvailability(false);
@@ -124,34 +127,28 @@ export default function AddBookingPage() {
     return roomDetails.find((room) => room.room_name === roomName);
   }
 
-function getRoomAvailability(roomName: string) {
-  if (!checkInDate || !checkOutDate) {
-    return null;
+  function getRoomAvailability(roomName: string) {
+    if (!checkInDate || !checkOutDate) {
+      return null;
+    }
+
+    const room = getRoomByName(roomName);
+    if (!room) return null;
+
+    const hasConflict = bookingRows.some((item) => {
+      if (item.room_id !== room.id) return false;
+      if (!item.bookings) return false;
+
+      return rangesOverlap(
+        checkInDate,
+        checkOutDate,
+        item.bookings.check_in_date,
+        item.bookings.check_out_date
+      );
+    });
+
+    return !hasConflict;
   }
-
-  const room = getRoomByName(roomName);
-  if (!room) return null;
-
-  const hasConflict = bookingRows.some((item) => {
-    if (item.room_id !== room.id) return false;
-    if (!item.bookings) return false;
-
-    const booking = Array.isArray(item.bookings)
-      ? item.bookings[0]
-      : item.bookings;
-
-    if (!booking) return false;
-
-    return rangesOverlap(
-      checkInDate,
-      checkOutDate,
-      booking.check_in_date,
-      booking.check_out_date
-    );
-  });
-
-  return !hasConflict;
-}
 
   function getRoomFinalPrice(roomName: string) {
     const room = getRoomByName(roomName);
